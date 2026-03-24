@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>학습</title>
+    <link
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/icon?family=Material+Icons"
+      rel="stylesheet"
+    />
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="train.css" />
+    <!-- TensorFlow.js (CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+  </head>
+  <body>
+    <!-- Top Header -->
+    <header class="top-header">
+      <button class="mission-info">
+        <h2 class="title">사운드 분류</h2>
+        <div class="line"></div>
+        <p class="description">
+          나만의 사운드 분류 AI 시스템을 만들어 보세요.
+        </p>
+      </button>
+      <button
+        class="menu-btn"
+        onclick="toggleFullscreen()"
+        title="전체 화면 전환"
+      >
+        <!-- 최대화 아이콘 -->
+        <svg
+          class="fullscreen-icon"
+          width="36"
+          height="36"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"
+            fill="#374553"
+          />
+        </svg>
+        <!-- 축소 아이콘 -->
+        <svg
+          class="exit-fullscreen-icon"
+          width="36"
+          height="36"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          style="display: none"
+        >
+          <path
+            d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"
+            fill="#374553"
+          />
+        </svg>
+      </button>
+    </header>
+
+    <!-- Content Area -->
+    <div class="content-area">
+      <!-- Header -->
+      <div class="train-header">
+        <div class="train-header-left">
+          <div class="train-title-wrapper">
+            <input
+              type="text"
+              class="train-title-input"
+              id="project-name-input"
+              value="New Project"
+              onchange="updateProjectName(this.value)"
+              oninput="autoResizeProjectInput(this)"
+              onfocus="this.select()"
+            />
+            <span
+              class="material-icons train-edit-icon"
+              onclick="document.getElementById('project-name-input').focus()"
+              >edit</span
+            >
+          </div>
+        </div>
+        <div class="train-header-right">
+          <button class="train-save-btn" onclick="saveProject()">저장</button>
+        </div>
+      </div>
+
+      <!-- Main Content -->
+      <div class="train-content">
+        <div class="train-columns">
+          <!-- Data Input -->
+          <div class="train-column">
+            <div class="train-section-header">
+              <h2 class="train-section-title">데이터 입력</h2>
+              <p class="train-section-desc">모델 학습을 위한 사운드 데이터를 입력하세요.</p>
+            </div>
+            <div class="train-section-body">
+              <!-- Class 1 -->
+              <div class="train-class-card" data-class-id="0" onclick="handleCardClick(this, event)">
+                <div class="train-class-header">
+                  <div class="train-class-header-left">
+                    <span class="train-class-name" id="class-name-0">클래스 1</span>
+                    <span class="material-icons train-class-edit" onclick="event.stopPropagation(); editClassName(0)">edit</span>
+                  </div>
+                  <button class="train-class-delete" onclick="event.stopPropagation(); deleteClass(0)">
+                    <span class="material-icons">delete</span>
+                  </button>
+                </div>
+                <p class="train-class-placeholder" id="placeholder-0">여기를 클릭하여 데이터를 추가하세요.</p>
+                <div class="train-audio-preview" id="audio-preview-0"></div>
+                <div class="train-class-content">
+                  <div class="train-input-dropdown-wrapper">
+                    <button class="train-input-dropdown" onclick="event.stopPropagation(); toggleInputDropdown(0)">
+                      <span class="train-input-dropdown-text" id="dropdown-text-0">업로드</span>
+                      <span class="material-icons">expand_more</span>
+                    </button>
+                    <div class="train-input-dropdown-menu" id="dropdown-menu-0">
+                      <button class="train-input-dropdown-item" onclick="event.stopPropagation(); selectInputMode(0, 'upload')">업로드</button>
+                      <button class="train-input-dropdown-item" onclick="event.stopPropagation(); selectInputMode(0, 'record')">녹음</button>
+                    </div>
+                  </div>
+                  <!-- Upload Mode (default visible) -->
+                  <div class="train-audio-upload-mode" id="upload-mode-0">
+                    <div class="train-audio-content-row">
+                      <div class="train-audio-upload-area" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, 0)">
+                        <span class="material-icons train-upload-icon">upload</span>
+                        <p class="train-upload-text">사운드 파일을 이곳에<br>끌어다 놓으세요</p>
+                        <button class="train-upload-btn" onclick="event.stopPropagation(); document.getElementById('file-input-0').click()">파일 선택</button>
+                        <input type="file" id="file-input-0" class="hidden-file-input" accept=".wav,.mp3,audio/*" multiple onchange="handleFileSelect(0, this.files)">
+                        <p class="train-audio-hint">3MB 이하의 wav, mp3 형식의<br>파일을 추가할 수 있습니다.</p>
+                      </div>
+                      <div class="train-audio-thumbs-grid" id="audio-thumbs-grid-0"></div>
+                    </div>
+                  </div>
+                  <!-- Record Mode (hidden) -->
+                  <div class="train-record-mode hidden" id="record-mode-0">
+                    <div class="train-record-settings">
+                      <div class="train-record-select-wrapper">
+                        <button class="train-record-select" onclick="event.stopPropagation(); toggleRecordDropdown(0, 'duration')">
+                          <span class="train-record-select-text" id="record-duration-text-0">녹음 시간 3초</span>
+                          <span class="material-icons">expand_more</span>
+                        </button>
+                        <div class="train-record-dropdown-menu" id="record-duration-menu-0">
+                          <button class="train-record-dropdown-item" onclick="event.stopPropagation(); selectRecordDuration(0, 1)">1초</button>
+                          <button class="train-record-dropdown-item" onclick="event.stopPropagation(); selectRecordDuration(0, 2)">2초</button>
+                          <button class="train-record-dropdown-item" onclick="event.stopPropagation(); selectRecordDuration(0, 3)">3초</button>
+                        </div>
+                      </div>
+                      <div class="train-record-select-wrapper">
+                        <button class="train-record-select" onclick="event.stopPropagation(); toggleRecordDropdown(0, 'delay')">
+                          <span class="train-record-select-text" id="record-delay-text-0">대기 시간 없음</span>
+                          <span class="material-icons">expand_more</span>
+                        </button>
+                        <div class="train-record-dropdown-menu" id="record-delay-menu-0">
+                          <button class="train-record-dropdown-item" onclick="event.stopPropagation(); selectRecordDelay(0, 0)">없음</button>
+                          <button class="train-record-dropdown-item" onclick="event.stopPropagation(); selectRecordDelay(0, 1)">1초</button>
+                          <button class="train-record-dropdown-item" onclick="event.stopPropagation(); selectRecordDelay(0, 2)">2초</button>
+                          <button class="train-record-dropdown-item" onclick="event.stopPropagation(); selectRecordDelay(0, 3)">3초</button>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="train-record-content-row">
+                      <div class="train-waveform-wrapper">
+                        <canvas class="train-waveform-canvas" id="waveform-canvas-0"></canvas>
+                      </div>
+                      <div class="train-audio-thumbs-grid" id="rec-thumbs-grid-0"></div>
+                    </div>
+                    <div class="train-record-actions" id="record-actions-0">
+                      <button class="train-record-btn" id="record-btn-0" onclick="event.stopPropagation(); toggleRecording(0)">
+                        <span class="material-icons">mic</span>
+                        녹음하기
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <!-- Class 2 -->
+              <div class="train-class-card" data-class-id="1" onclick="handleCardClick(this, event)">
+                <div class="train-class-header">
+                  <div class="train-class-header-left">
+                    <span class="train-class-name" id="class-name-1">클래스 2</span>
+                    <span class="material-icons train-class-edit" onclick="event.stopPropagation(); editClassName(1)">edit</span>
+                  </div>
+                  <button class="train-class-delete" onclick="event.stopPropagation(); deleteClass(1)">
+                    <span class="material-icons">delete</span>
+                  </button>
+                </div>
+                <p class="train-class-placeholder" id="placeholder-1">여기를 클릭하여 데이터를 추가하세요.</p>
+                <div class="train-audio-preview" id="audio-preview-1"></div>
+                <div class="train-class-content">
+                  <div class="train-input-dropdown-wrapper">
+                    <button class="train-input-dropdown" onclick="event.stopPropagation(); toggleInputDropdown(1)">
+                      <span class="train-input-dropdown-text" id="dropdown-text-1">업로드</span>
+                      <span class="material-icons">expand_more</span>
+                    </button>
+                    <div class="train-input-dropdown-menu" id="dropdown-menu-1">
+                      <button class="train-input-dropdown-item" onclick="event.stopPropagation(); selectInputMode(1, 'upload')">업로드</button>
+                      <button class="train-input-dropdown-item" onclick="event.stopPropagation(); selectInputMode(1, 'record')">녹음</button>
+                    </div>
+                  </div>
+                  <!-- Upload Mode (default visible) -->
+                  <div class="train-audio-upload-mode" id="upload-mode-1">
+                    <div class="train-audio-content-row">
+                      <div class="train-audio-upload-area" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, 1)">
+                        <span class="material-icons train-upload-icon">upload</span>
+                        <p class="train-upload-text">사운드 파일을 이곳에<br>끌어다 놓으세요</p>
+                        <button class="train-upload-btn" onclick="event.stopPropagation(); document.getElementById('file-input-1').click()">파일 선택</button>
+                        <input type="file" id="file-input-1" class="hidden-file-input" accept=".wav,.mp3,audio/*" multiple onchange="handleFileSelect(1, this.files)">
+                        <p class="train-audio-hint">3MB 이하의 wav, mp3 형식의<br>파일을 추가할 수 있습니다.</p>
+                      </div>
+                      <div class="train-audio-thumbs-grid" id="audio-thumbs-grid-1"></div>
+                    </div>
+                  </div>
+                  <!-- Record Mode (hidden) -->
+                  <div class="train-record-mode hidden" id="record-mode-1">
+                    <div class="train-record-settings">
+                      <div class="train-record-select-wrapper">
+                        <button class="train-record-select" onclick="event.stopPropagation(); toggleRecordDropdown(1, 'duration')">
+                          <span class="train-record-select-text" id="record-duration-text-1">녹음 시간 3초</span>
+                          <span class="material-icons">expand_more</span>
+                        </button>
+                        <div class="train-record-dropdown-menu" id="record-duration-menu-1">
+                          <button class="train-record-dropdown-item" onclick="event.stopPropagation(); selectRecordDuration(1, 1)">1초</button>
+                          <button class="train-record-dropdown-item" onclick="event.stopPropagation(); selectRecordDuration(1, 2)">2초</button>
+                          <button class="train-record-dropdown-item" onclick="event.stopPropagation(); selectRecordDuration(1, 3)">3초</button>
+                        </div>
+                      </div>
+                      <div class="train-record-select-wrapper">
+                        <button class="train-record-select" onclick="event.stopPropagation(); toggleRecordDropdown(1, 'delay')">
+                          <span class="train-record-select-text" id="record-delay-text-1">대기 시간 없음</span>
+                          <span class="material-icons">expand_more</span>
+                        </button>
+                        <div class="train-record-dropdown-menu" id="record-delay-menu-1">
+                          <button class="train-record-dropdown-item" onclick="event.stopPropagation(); selectRecordDelay(1, 0)">없음</button>
+                          <button class="train-record-dropdown-item" onclick="event.stopPropagation(); selectRecordDelay(1, 1)">1초</button>
+                          <button class="train-record-dropdown-item" onclick="event.stopPropagation(); selectRecordDelay(1, 2)">2초</button>
+                          <button class="train-record-dropdown-item" onclick="event.stopPropagation(); selectRecordDelay(1, 3)">3초</button>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="train-record-content-row">
+                      <div class="train-waveform-wrapper">
+                        <canvas class="train-waveform-canvas" id="waveform-canvas-1"></canvas>
+                      </div>
+                      <div class="train-audio-thumbs-grid" id="rec-thumbs-grid-1"></div>
+                    </div>
+                    <div class="train-record-actions" id="record-actions-1">
+                      <button class="train-record-btn" id="record-btn-1" onclick="event.stopPropagation(); toggleRecording(1)">
+                        <span class="material-icons">mic</span>
+                        녹음하기
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <!-- Add Class Button -->
+              <button class="train-add-class-btn" onclick="addClass()">
+                <span class="material-icons">add_circle</span>
+                클래스 추가
+              </button>
+            </div>
+          </div>
+
+          <!-- Training -->
+          <div class="train-column">
+            <div class="train-section-header">
+              <h2 class="train-section-title">학습</h2>
+              <p class="train-section-desc">데이터로 모델을 학습시키세요.</p>
+            </div>
+            <div class="train-section-body">
+              <div class="train-card">
+                <button
+                  class="train-button"
+                  id="train-btn"
+                  onclick="startTraining()"
+                >
+                  학습하기
+                </button>
+                <div class="train-progress-wrapper" id="train-progress-wrapper">
+                  <div class="train-progress-bar" id="train-progress-bar"></div>
+                </div>
+                <div
+                  class="train-advanced"
+                  id="train-advanced-toggle"
+                  onclick="toggleAdvancedOptions()"
+                >
+                  <span class="train-advanced-label">고급 설정</span>
+                  <span
+                    class="material-icons train-advanced-icon"
+                    id="advanced-icon"
+                    >expand_more</span
+                  >
+                </div>
+                <!-- 고급 옵션 -->
+                <div class="train-advanced-options" id="advanced-options">
+                  <div class="train-option-item">
+                    <label class="train-option-label"
+                      >에포크<span class="material-icons train-option-info"
+                        >info</span
+                      ></label
+                    >
+                    <input
+                      type="number"
+                      class="train-option-input"
+                      id="epochs-input"
+                      value="30"
+                      min="1"
+                      max="200"
+                    />
+                  </div>
+                  <div class="train-option-item">
+                    <label class="train-option-label"
+                      >배치 크기<span class="material-icons train-option-info"
+                        >info</span
+                      ></label
+                    >
+                    <input
+                      type="number"
+                      class="train-option-input"
+                      id="batch-size-input"
+                      value="16"
+                      min="1"
+                      max="128"
+                    />
+                  </div>
+                  <div class="train-option-item">
+                    <label class="train-option-label"
+                      >학습률<span
+                        class="material-icons train-option-info"
+                        >info</span
+                      ></label
+                    >
+                    <input
+                      type="number"
+                      class="train-option-input"
+                      id="learning-rate-input"
+                      value="0.001"
+                      min="0.0001"
+                      max="0.1"
+                      step="0.0001"
+                    />
+                  </div>
+                  <div class="train-option-item">
+                    <label class="train-option-label"
+                      >검증 비율<span
+                        class="material-icons train-option-info"
+                        >info</span
+                      ></label
+                    >
+                    <input
+                      type="number"
+                      class="train-option-input"
+                      id="validation-split-input"
+                      value="0.15"
+                      min="0"
+                      max="0.5"
+                      step="0.01"
+                    />
+                  </div>
+                  <button
+                    class="train-reset-btn"
+                    onclick="resetAdvancedOptions()"
+                  >
+                    <span class="material-icons">refresh</span>
+                    초기화
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Results -->
+          <div class="train-column">
+            <div class="train-section-header">
+              <h2
+                class="train-section-title train-section-title-gray"
+                id="result-title"
+              >
+                결과
+              </h2>
+              <p class="train-section-desc">
+                학습된 모델의 결과를 확인하세요.
+              </p>
+            </div>
+            <div class="train-section-body">
+              <div class="train-result-card" id="result-card">
+                <p class="train-result-placeholder" id="result-placeholder">
+                  모델 학습이 필요합니다.
+                </p>
+                <div class="result-content hidden" id="result-content">
+                  <!-- Mode dropdown -->
+                  <div class="result-dropdown-wrapper">
+                    <button class="result-dropdown-btn" onclick="toggleResultDropdown()">
+                      <span class="result-dropdown-text" id="result-dropdown-text">업로드</span>
+                      <span class="material-icons">expand_more</span>
+                    </button>
+                    <div class="result-dropdown-menu" id="result-dropdown-menu">
+                      <button class="result-dropdown-item" onclick="selectResultMode('upload')">업로드</button>
+                      <button class="result-dropdown-item" onclick="selectResultMode('record')">녹음</button>
+                      <button class="result-dropdown-item" onclick="selectResultMode('sample')">샘플</button>
+                    </div>
+                  </div>
+                  <!-- Upload mode -->
+                  <div class="result-mode-panel" id="result-upload-mode">
+                    <div class="result-upload-area" id="result-upload-area"
+                         ondragover="handleResultDragOver(event)"
+                         ondragleave="handleResultDragLeave(event)"
+                         ondrop="handleResultDrop(event)">
+                      <span class="material-icons result-upload-icon">upload</span>
+                      <p class="result-upload-text">사운드 파일을 이곳에 끌어다 놓으세요</p>
+                      <button class="result-upload-btn" onclick="document.getElementById('result-file-input').click()">파일 선택</button>
+                      <input type="file" id="result-file-input" class="hidden-file-input" accept=".wav,.mp3,audio/*" onchange="handleResultFileSelect(this.files)">
+                      <p class="result-audio-hint">3MB 이하의 wav, mp3 형식의 파일을 추가할 수 있습니다.</p>
+                    </div>
+                    <div class="result-audio-result hidden" id="result-upload-result">
+                      <div class="result-waveform-box">
+                        <canvas id="result-upload-waveform" class="result-waveform-canvas"></canvas>
+                      </div>
+                      <button class="result-play-full-btn" id="result-upload-play-btn" onclick="playResultAudio('upload')">
+                        <span class="material-icons">play_arrow</span>
+                      </button>
+                      <div class="result-bars" id="result-upload-bars"></div>
+                    </div>
+                  </div>
+                  <!-- Record mode -->
+                  <div class="result-mode-panel hidden" id="result-record-mode">
+                    <div class="result-waveform-box">
+                      <canvas id="result-record-waveform" class="result-waveform-canvas"></canvas>
+                    </div>
+                    <div class="result-record-btns">
+                      <button class="result-icon-btn result-mic-btn" id="result-record-btn" onclick="toggleResultRecording()">
+                        <span class="material-icons">mic</span>
+                      </button>
+                      <button class="result-icon-btn result-play-icon-btn disabled" id="result-record-play-btn" onclick="playResultAudio('record')" disabled>
+                        <span class="material-icons">play_arrow</span>
+                      </button>
+                    </div>
+                    <div class="result-bars hidden" id="result-record-bars"></div>
+                    <div class="result-mic-error hidden" id="result-mic-error">
+                      <span class="material-icons">mic_off</span>
+                      <p>마이크를 찾을 수 없습니다.<br>마이크 사용 권한을 허용해 주세요.</p>
+                    </div>
+                  </div>
+                  <!-- Sample mode -->
+                  <div class="result-mode-panel hidden" id="result-sample-mode">
+                    <div class="result-sample-placeholder" id="result-sample-placeholder">
+                      <span class="material-icons result-sample-placeholder-icon">audio_file</span>
+                      <p class="result-sample-placeholder-text">테스트할 사운드를 선택하세요.</p>
+                    </div>
+                    <div class="result-audio-result hidden" id="result-sample-result">
+                      <div class="result-waveform-box">
+                        <canvas id="result-sample-waveform" class="result-waveform-canvas"></canvas>
+                      </div>
+                      <button class="result-play-full-btn" id="result-sample-play-btn" onclick="playResultAudio('sample')">
+                        <span class="material-icons">play_arrow</span>
+                      </button>
+                      <div class="result-bars" id="result-sample-bars"></div>
+                    </div>
+                    <div class="result-sample-selector">
+                      <div class="result-sample-dropdown-wrapper">
+                        <button class="result-dropdown-btn" onclick="toggleResultSampleDropdown()">
+                          <span id="result-sample-text">카테고리</span>
+                          <span class="material-icons">expand_more</span>
+                        </button>
+                        <div class="result-dropdown-menu" id="result-sample-menu">
+                          <button class="result-dropdown-item" onclick="selectResultSampleCategory('piano')">피아노</button>
+                          <button class="result-dropdown-item" onclick="selectResultSampleCategory('guitar')">기타</button>
+                          <button class="result-dropdown-item" onclick="selectResultSampleCategory('drums')">드럼</button>
+                        </div>
+                      </div>
+                      <div class="result-sample-thumbs" id="result-sample-thumbs"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="train-model.js"></script>
+    <script src="train-ui.js"></script>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay hidden">
+      <div class="loading-content">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">불러오는 중...</div>
+        <div class="loading-count" id="loading-count">0 / 0</div>
+      </div>
+    </div>
+  </body>
+</html>
