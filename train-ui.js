@@ -446,20 +446,66 @@ function toggleResultSampleDropdown() {
 function selectResultSampleCategory(category) {
   const textEl = document.getElementById('result-sample-text');
   const menu = document.getElementById('result-sample-menu');
-  const names = { piano: '피아노', guitar: '기타', drums: '드럼' };
+  const names = { dog: '강아지', cat: '고양이' };
   if (textEl) textEl.textContent = names[category] || category;
   if (menu) menu.classList.remove('show');
   loadResultSampleThumbs(category);
 }
 
-function loadResultSampleThumbs(category) {
+async function loadResultSampleThumbs(category) {
   const thumbs = document.getElementById('result-sample-thumbs');
   if (!thumbs) return;
   thumbs.textContent = '';
-  const msg = document.createElement('p');
-  msg.style.cssText = 'font-size:13px;color:#646F7C;padding:8px 0;';
-  msg.textContent = '샘플 데이터 준비 중';
-  thumbs.appendChild(msg);
+
+  const audioCtx = getAudioCtx();
+  const total = 5;
+
+  for (let i = 1; i <= total; i++) {
+    const num = String(i).padStart(2, '0');
+    const url = 'dataset/test/' + category + '/' + num + '.wav';
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const arrayBuffer = await res.arrayBuffer();
+      const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
+      const blob = new Blob([arrayBuffer], { type: 'audio/wav' });
+      const dataUrl = await blobToDataUrl(blob);
+      const thumbnail = await createAudioThumbnail(audioBuffer);
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'train-audio-thumb-wrapper result-sample-thumb';
+      wrapper.style.cursor = 'pointer';
+
+      const img = document.createElement('img');
+      img.className = 'train-audio-thumb-img';
+      img.src = thumbnail;
+      img.alt = '';
+
+      wrapper.appendChild(img);
+      wrapper.addEventListener('click', () => selectResultSampleAudio(dataUrl, audioBuffer));
+      thumbs.appendChild(wrapper);
+    } catch (err) {
+      console.error('결과 샘플 로드 오류:', url, err);
+    }
+  }
+}
+
+async function selectResultSampleAudio(dataUrl, audioBuffer) {
+  resultAudioStore.sample = dataUrl;
+
+  const placeholder = document.getElementById('result-sample-placeholder');
+  const result = document.getElementById('result-sample-result');
+  if (placeholder) placeholder.classList.add('hidden');
+  if (result) result.classList.remove('hidden');
+
+  const canvas = document.getElementById('result-sample-waveform');
+  if (canvas) requestAnimationFrame(() => drawStaticWaveform(canvas, audioBuffer));
+
+  const bars = document.getElementById('result-sample-bars');
+  if (bars) {
+    const results = await runInference(dataUrl);
+    renderResults(bars, results);
+  }
 }
 
 // ============ Project Management ============
@@ -477,62 +523,9 @@ function initProject() {
     loadProject(currentProjectId);
   } else {
     renderAllClasses();
-    loadDefaultSamples();
   }
 }
 
-// ============ Default Samples ============
-
-const DEFAULT_SAMPLES = {
-  0: { label: '강아지', files: Array.from({length: 10}, (_, i) => `dataset/train/dog/${String(i + 1).padStart(2, '0')}.wav`) },
-  1: { label: '고양이', files: Array.from({length: 10}, (_, i) => `dataset/train/cat/${String(i + 1).padStart(2, '0')}.wav`) },
-};
-
-async function loadDefaultSamples() {
-  const overlay = document.getElementById('loading-overlay');
-  const countEl = document.getElementById('loading-count');
-  const total = Object.values(DEFAULT_SAMPLES).reduce((s, v) => s + v.files.length, 0);
-  let done = 0;
-
-  // 클래스 이름 업데이트
-  for (const [idStr, info] of Object.entries(DEFAULT_SAMPLES)) {
-    const id = parseInt(idStr);
-    classNames[id] = info.label;
-    const nameEl = document.getElementById('class-name-' + id);
-    if (nameEl) nameEl.textContent = info.label;
-  }
-
-  if (overlay) overlay.classList.remove('hidden');
-  if (countEl) countEl.textContent = `0 / ${total}`;
-
-  const audioCtx = getAudioCtx();
-
-  for (const [idStr, info] of Object.entries(DEFAULT_SAMPLES)) {
-    const id = parseInt(idStr);
-    for (const url of info.files) {
-      try {
-        const resp = await fetch(url);
-        if (!resp.ok) continue;
-        const arrayBuffer = await resp.arrayBuffer();
-        const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
-        const blob = new Blob([arrayBuffer], { type: 'audio/wav' });
-        const dataUrl = await blobToDataUrl(blob);
-        const thumbnail = await createAudioThumbnail(audioBuffer);
-        classSamples[id].push(dataUrl);
-        classThumbnails[id] = classThumbnails[id] || [];
-        classThumbnails[id].push(thumbnail);
-      } catch (e) {
-        console.warn('샘플 로드 실패:', url, e);
-      }
-      done++;
-      if (countEl) countEl.textContent = `${done} / ${total}`;
-    }
-    updateAudioThumbsGrid(id);
-    updateAudioPreview(id);
-  }
-
-  if (overlay) overlay.classList.add('hidden');
-}
 
 const DEFAULT_PROJECT_CONFIG = {};
 
@@ -609,7 +602,8 @@ let classIds = [0, 1];
 const classNames = { 0: '클래스 1', 1: '클래스 2' };
 const classSamples = { 0: [], 1: [] };
 const classThumbnails = { 0: [], 1: [] };
-const recordSettings = { 0: { duration: 3, delay: 0 }, 1: { duration: 3, delay: 0 } };
+const recordSettings = { 0: { duration: 3, delay: 3 }, 1: { duration: 3, delay: 3 } };
+const sampleSettings = { 0: { sound: null, count: null }, 1: { sound: null, count: null } };
 const isRecordingMap = {};
 
 function renderAllClasses() {
@@ -714,8 +708,14 @@ function buildClassCardElement(classId, className) {
   ddRecord.textContent = '녹음';
   ddRecord.setAttribute('onclick', 'event.stopPropagation(); selectInputMode(' + classId + ", 'record')");
 
+  const ddSample = document.createElement('button');
+  ddSample.className = 'train-input-dropdown-item';
+  ddSample.textContent = '샘플';
+  ddSample.setAttribute('onclick', 'event.stopPropagation(); selectInputMode(' + classId + ", 'sample')");
+
   ddMenu.appendChild(ddUpload);
   ddMenu.appendChild(ddRecord);
+  ddMenu.appendChild(ddSample);
   ddWrapper.appendChild(ddBtn);
   ddWrapper.appendChild(ddMenu);
 
@@ -831,7 +831,7 @@ function buildClassCardElement(classId, className) {
   const delayText = document.createElement('span');
   delayText.className = 'train-record-select-text';
   delayText.id = 'record-delay-text-' + classId;
-  delayText.textContent = '대기 시간 없음';
+  delayText.textContent = '대기 시간 3초';
 
   const delayIcon = document.createElement('span');
   delayIcon.className = 'material-icons';
@@ -906,9 +906,107 @@ function buildClassCardElement(classId, className) {
   recordMode.appendChild(recContentRow);
   recordMode.appendChild(recActions);
 
+  // Sample mode
+  const sampleMode = document.createElement('div');
+  sampleMode.className = 'train-sample-mode hidden';
+  sampleMode.id = 'sample-mode-' + classId;
+
+  const sampleSettingsRow = document.createElement('div');
+  sampleSettingsRow.className = 'train-sample-settings';
+
+  // Sound dropdown
+  const soundWrapper = document.createElement('div');
+  soundWrapper.className = 'train-record-select-wrapper';
+
+  const soundBtn = document.createElement('button');
+  soundBtn.className = 'train-record-select';
+  soundBtn.setAttribute('onclick', 'event.stopPropagation(); toggleSampleDropdown(' + classId + ", 'sound')");
+
+  const soundText = document.createElement('span');
+  soundText.className = 'train-record-select-text';
+  soundText.id = 'sample-sound-text-' + classId;
+  soundText.textContent = '사운드';
+
+  const soundIcon = document.createElement('span');
+  soundIcon.className = 'material-icons';
+  soundIcon.textContent = 'expand_more';
+
+  soundBtn.appendChild(soundText);
+  soundBtn.appendChild(soundIcon);
+
+  const soundMenu = document.createElement('div');
+  soundMenu.className = 'train-record-dropdown-menu';
+  soundMenu.id = 'sample-sound-menu-' + classId;
+
+  [['dog', '강아지'], ['cat', '고양이']].forEach(([val, label]) => {
+    const item = document.createElement('button');
+    item.className = 'train-record-dropdown-item';
+    item.textContent = label;
+    item.setAttribute('onclick', 'event.stopPropagation(); selectSampleSound(' + classId + ", '" + val + "')");
+    soundMenu.appendChild(item);
+  });
+
+  soundWrapper.appendChild(soundBtn);
+  soundWrapper.appendChild(soundMenu);
+
+  // Count dropdown
+  const countWrapper = document.createElement('div');
+  countWrapper.className = 'train-record-select-wrapper';
+
+  const countBtn = document.createElement('button');
+  countBtn.className = 'train-record-select';
+  countBtn.setAttribute('onclick', 'event.stopPropagation(); toggleSampleDropdown(' + classId + ", 'count')");
+
+  const countText = document.createElement('span');
+  countText.className = 'train-record-select-text';
+  countText.id = 'sample-count-text-' + classId;
+  countText.textContent = '개수';
+
+  const countIcon = document.createElement('span');
+  countIcon.className = 'material-icons';
+  countIcon.textContent = 'expand_more';
+
+  countBtn.appendChild(countText);
+  countBtn.appendChild(countIcon);
+
+  const countMenu = document.createElement('div');
+  countMenu.className = 'train-record-dropdown-menu';
+  countMenu.id = 'sample-count-menu-' + classId;
+
+  [10, 20, 30].forEach(n => {
+    const item = document.createElement('button');
+    item.className = 'train-record-dropdown-item';
+    item.textContent = n + '개';
+    item.setAttribute('onclick', 'event.stopPropagation(); selectSampleCount(' + classId + ', ' + n + ')');
+    countMenu.appendChild(item);
+  });
+
+  countWrapper.appendChild(countBtn);
+  countWrapper.appendChild(countMenu);
+
+  // Load button
+  const loadBtn = document.createElement('button');
+  loadBtn.className = 'train-sample-load-btn';
+  loadBtn.id = 'sample-load-btn-' + classId;
+  loadBtn.disabled = true;
+  loadBtn.setAttribute('onclick', 'event.stopPropagation(); loadSampleData(' + classId + ')');
+  loadBtn.textContent = '불러오기';
+
+  sampleSettingsRow.appendChild(soundWrapper);
+  sampleSettingsRow.appendChild(countWrapper);
+  sampleSettingsRow.appendChild(loadBtn);
+
+  const sampleThumbsGrid = document.createElement('div');
+  sampleThumbsGrid.className = 'train-audio-thumbs-grid';
+  sampleThumbsGrid.id = 'sample-thumbs-grid-' + classId;
+
+  sampleMode.appendChild(sampleSettingsRow);
+  sampleMode.appendChild(sampleThumbsGrid);
+
   content.appendChild(ddWrapper);
   content.appendChild(uploadMode);
   content.appendChild(recordMode);
+  content.appendChild(sampleMode);
 
   card.appendChild(header);
   card.appendChild(placeholder);
@@ -934,6 +1032,7 @@ function addClass() {
   classSamples[id] = [];
   classThumbnails[id] = [];
   recordSettings[id] = { duration: 3, delay: 0 };
+  sampleSettings[id] = { sound: null, count: null };
   const addBtn = document.querySelector('.train-add-class-btn');
   const el = buildClassCardElement(id, name);
   if (addBtn) addBtn.parentNode.insertBefore(el, addBtn);
@@ -1096,9 +1195,10 @@ function buildThumbElement(thumb, classId, idx) {
 function updateAudioThumbsGrid(classId) {
   const uploadGrid = document.getElementById('audio-thumbs-grid-' + classId);
   const recGrid = document.getElementById('rec-thumbs-grid-' + classId);
+  const sampleGrid = document.getElementById('sample-thumbs-grid-' + classId);
   const thumbs = classThumbnails[classId] || [];
 
-  [uploadGrid, recGrid].forEach(grid => {
+  [uploadGrid, recGrid, sampleGrid].forEach(grid => {
     if (!grid) return;
     grid.textContent = '';
     thumbs.forEach((thumb, idx) => {
@@ -1310,12 +1410,14 @@ function selectInputMode(classId, mode) {
   const dropdownText = document.getElementById('dropdown-text-' + classId);
   const uploadMode = document.getElementById('upload-mode-' + classId);
   const recordMode = document.getElementById('record-mode-' + classId);
+  const sampleMode = document.getElementById('sample-mode-' + classId);
   const menu = document.getElementById('dropdown-menu-' + classId);
   if (menu) menu.classList.remove('show');
-  const map = { upload: '업로드', record: '녹음' };
+  const map = { upload: '업로드', record: '녹음', sample: '샘플' };
   if (dropdownText) dropdownText.textContent = map[mode] || mode;
   if (uploadMode) uploadMode.classList.add('hidden');
   if (recordMode) recordMode.classList.add('hidden');
+  if (sampleMode) sampleMode.classList.add('hidden');
   stopClassRecording(classId);
   if (mode === 'upload') {
     if (uploadMode) uploadMode.classList.remove('hidden');
@@ -1326,6 +1428,8 @@ function selectInputMode(classId, mode) {
       const dur = (recordSettings[classId] || {}).duration;
       requestAnimationFrame(() => drawEmptyWaveform(canvas, dur));
     }
+  } else if (mode === 'sample') {
+    if (sampleMode) sampleMode.classList.remove('hidden');
   }
 }
 
@@ -1358,6 +1462,92 @@ document.addEventListener('click', event => {
     document.querySelectorAll('.result-dropdown-menu.show').forEach(m => m.classList.remove('show'));
   }
 });
+
+// ============ Sample Mode ============
+
+function toggleSampleDropdown(classId, type) {
+  const menuId = type === 'sound' ? 'sample-sound-menu-' + classId : 'sample-count-menu-' + classId;
+  const menu = document.getElementById(menuId);
+  if (!menu) return;
+  const btn = menu.closest('.train-record-select-wrapper').querySelector('.train-record-select');
+  document.querySelectorAll('.train-record-dropdown-menu.show').forEach(m => { if (m !== menu) m.classList.remove('show'); });
+  if (!menu.classList.contains('show')) adjustDropdownDirection(menu, btn);
+  menu.classList.toggle('show');
+}
+
+function selectSampleSound(classId, sound) {
+  const textEl = document.getElementById('sample-sound-text-' + classId);
+  const menu = document.getElementById('sample-sound-menu-' + classId);
+  const names = { dog: '강아지', cat: '고양이' };
+  if (textEl) textEl.textContent = names[sound] || sound;
+  if (menu) menu.classList.remove('show');
+  if (!sampleSettings[classId]) sampleSettings[classId] = { sound: null, count: null };
+  sampleSettings[classId].sound = sound;
+  updateSampleLoadBtn(classId);
+}
+
+function selectSampleCount(classId, count) {
+  const textEl = document.getElementById('sample-count-text-' + classId);
+  const menu = document.getElementById('sample-count-menu-' + classId);
+  if (textEl) textEl.textContent = count + '개';
+  if (menu) menu.classList.remove('show');
+  if (!sampleSettings[classId]) sampleSettings[classId] = { sound: null, count: null };
+  sampleSettings[classId].count = count;
+  updateSampleLoadBtn(classId);
+}
+
+function updateSampleLoadBtn(classId) {
+  const btn = document.getElementById('sample-load-btn-' + classId);
+  if (!btn) return;
+  const s = sampleSettings[classId] || {};
+  btn.disabled = !(s.sound && s.count);
+}
+
+async function loadSampleData(classId) {
+  const s = sampleSettings[classId] || {};
+  if (!s.sound || !s.count) return;
+
+  const loadBtn = document.getElementById('sample-load-btn-' + classId);
+  if (loadBtn) { loadBtn.disabled = true; loadBtn.textContent = '불러오는 중...'; }
+
+  classSamples[classId] = [];
+  classThumbnails[classId] = [];
+  updateAudioThumbsGrid(classId);
+  updateAudioPreview(classId);
+
+  const audioCtx = getAudioCtx();
+  const folder = s.sound === 'dog' ? 'dog' : 'cat';
+  const total = 30;
+  const indices = Array.from({ length: total }, (_, i) => i + 1)
+    .sort(() => Math.random() - 0.5)
+    .slice(0, s.count);
+  let loaded = 0;
+
+  for (const i of indices) {
+    const num = String(i).padStart(2, '0');
+    const url = 'dataset/train/' + folder + '/' + num + '.wav';
+    try {
+      const res = await fetch(url);
+      if (!res.ok) break;
+      const arrayBuffer = await res.arrayBuffer();
+      const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
+      const blob = new Blob([arrayBuffer], { type: 'audio/wav' });
+      const dataUrl = await blobToDataUrl(blob);
+      const thumbnail = await createAudioThumbnail(audioBuffer);
+      classSamples[classId].push(dataUrl);
+      classThumbnails[classId].push(thumbnail);
+      loaded++;
+      updateAudioThumbsGrid(classId);
+      updateAudioPreview(classId);
+    } catch (err) {
+      console.error('샘플 로드 오류:', url, err);
+    }
+  }
+
+  if (loadBtn) { loadBtn.disabled = false; loadBtn.textContent = '불러오기'; }
+  if (loaded > 0) showToast(loaded + '개 샘플을 불러왔습니다.');
+  else showToast('샘플 파일을 찾을 수 없습니다.');
+}
 
 // ============ Toast ============
 

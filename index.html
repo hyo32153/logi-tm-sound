@@ -124,6 +124,7 @@
                     <div class="train-input-dropdown-menu" id="dropdown-menu-0">
                       <button class="train-input-dropdown-item" onclick="event.stopPropagation(); selectInputMode(0, 'upload')">업로드</button>
                       <button class="train-input-dropdown-item" onclick="event.stopPropagation(); selectInputMode(0, 'record')">녹음</button>
+                      <button class="train-input-dropdown-item" onclick="event.stopPropagation(); selectInputMode(0, 'sample')">샘플</button>
                     </div>
                   </div>
                   <!-- Upload Mode (default visible) -->
@@ -179,6 +180,34 @@
                       </button>
                     </div>
                   </div>
+                  <!-- Sample Mode (hidden) -->
+                  <div class="train-sample-mode hidden" id="sample-mode-0">
+                    <div class="train-sample-settings">
+                      <div class="train-record-select-wrapper">
+                        <button class="train-record-select" onclick="event.stopPropagation(); toggleSampleDropdown(0, 'sound')">
+                          <span class="train-record-select-text" id="sample-sound-text-0">사운드</span>
+                          <span class="material-icons">expand_more</span>
+                        </button>
+                        <div class="train-record-dropdown-menu" id="sample-sound-menu-0">
+                          <button class="train-record-dropdown-item" onclick="event.stopPropagation(); selectSampleSound(0, 'dog')">강아지</button>
+                          <button class="train-record-dropdown-item" onclick="event.stopPropagation(); selectSampleSound(0, 'cat')">고양이</button>
+                        </div>
+                      </div>
+                      <div class="train-record-select-wrapper">
+                        <button class="train-record-select" onclick="event.stopPropagation(); toggleSampleDropdown(0, 'count')">
+                          <span class="train-record-select-text" id="sample-count-text-0">개수</span>
+                          <span class="material-icons">expand_more</span>
+                        </button>
+                        <div class="train-record-dropdown-menu" id="sample-count-menu-0">
+                          <button class="train-record-dropdown-item" onclick="event.stopPropagation(); selectSampleCount(0, 10)">10개</button>
+                          <button class="train-record-dropdown-item" onclick="event.stopPropagation(); selectSampleCount(0, 20)">20개</button>
+                          <button class="train-record-dropdown-item" onclick="event.stopPropagation(); selectSampleCount(0, 30)">30개</button>
+                        </div>
+                      </div>
+                      <button class="train-sample-load-btn" id="sample-load-btn-0" onclick="event.stopPropagation(); loadSampleData(0)" disabled>불러오기</button>
+                    </div>
+                    <div class="train-audio-thumbs-grid" id="sample-thumbs-grid-0"></div>
+                  </div>
                 </div>
               </div>
               <!-- Class 2 -->
@@ -203,6 +232,7 @@
                     <div class="train-input-dropdown-menu" id="dropdown-menu-1">
                       <button class="train-input-dropdown-item" onclick="event.stopPropagation(); selectInputMode(1, 'upload')">업로드</button>
                       <button class="train-input-dropdown-item" onclick="event.stopPropagation(); selectInputMode(1, 'record')">녹음</button>
+                      <button class="train-input-dropdown-item" onclick="event.stopPropagation(); selectInputMode(1, 'sample')">샘플</button>
                     </div>
                   </div>
                   <!-- Upload Mode (default visible) -->
@@ -257,6 +287,34 @@
                         녹음하기
                       </button>
                     </div>
+                  </div>
+                  <!-- Sample Mode (hidden) -->
+                  <div class="train-sample-mode hidden" id="sample-mode-1">
+                    <div class="train-sample-settings">
+                      <div class="train-record-select-wrapper">
+                        <button class="train-record-select" onclick="event.stopPropagation(); toggleSampleDropdown(1, 'sound')">
+                          <span class="train-record-select-text" id="sample-sound-text-1">사운드</span>
+                          <span class="material-icons">expand_more</span>
+                        </button>
+                        <div class="train-record-dropdown-menu" id="sample-sound-menu-1">
+                          <button class="train-record-dropdown-item" onclick="event.stopPropagation(); selectSampleSound(1, 'dog')">강아지</button>
+                          <button class="train-record-dropdown-item" onclick="event.stopPropagation(); selectSampleSound(1, 'cat')">고양이</button>
+                        </div>
+                      </div>
+                      <div class="train-record-select-wrapper">
+                        <button class="train-record-select" onclick="event.stopPropagation(); toggleSampleDropdown(1, 'count')">
+                          <span class="train-record-select-text" id="sample-count-text-1">개수</span>
+                          <span class="material-icons">expand_more</span>
+                        </button>
+                        <div class="train-record-dropdown-menu" id="sample-count-menu-1">
+                          <button class="train-record-dropdown-item" onclick="event.stopPropagation(); selectSampleCount(1, 10)">10개</button>
+                          <button class="train-record-dropdown-item" onclick="event.stopPropagation(); selectSampleCount(1, 20)">20개</button>
+                          <button class="train-record-dropdown-item" onclick="event.stopPropagation(); selectSampleCount(1, 30)">30개</button>
+                        </div>
+                      </div>
+                      <button class="train-sample-load-btn" id="sample-load-btn-1" onclick="event.stopPropagation(); loadSampleData(1)" disabled>불러오기</button>
+                    </div>
+                    <div class="train-audio-thumbs-grid" id="sample-thumbs-grid-1"></div>
                   </div>
                 </div>
               </div>
@@ -470,9 +528,8 @@
                           <span class="material-icons">expand_more</span>
                         </button>
                         <div class="result-dropdown-menu" id="result-sample-menu">
-                          <button class="result-dropdown-item" onclick="selectResultSampleCategory('piano')">피아노</button>
-                          <button class="result-dropdown-item" onclick="selectResultSampleCategory('guitar')">기타</button>
-                          <button class="result-dropdown-item" onclick="selectResultSampleCategory('drums')">드럼</button>
+                          <button class="result-dropdown-item" onclick="selectResultSampleCategory('dog')">강아지</button>
+                          <button class="result-dropdown-item" onclick="selectResultSampleCategory('cat')">고양이</button>
                         </div>
                       </div>
                       <div class="result-sample-thumbs" id="result-sample-thumbs"></div>

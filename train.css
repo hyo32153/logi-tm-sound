@@ -1599,6 +1599,51 @@
   transform: translateY(0);
 }
 
+/* Sample Mode */
+.train-sample-mode {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.train-sample-settings {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  align-items: center;
+}
+
+.train-sample-settings .train-record-select-wrapper {
+  flex: 1;
+  min-width: 0;
+}
+
+.train-sample-load-btn {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  padding: 4px 8px;
+  background: #483CC4;
+  border: none;
+  border-radius: 8px;
+  font-family: "Pretendard", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.train-sample-load-btn:disabled {
+  background: #C7C3EC;
+  cursor: not-allowed;
+}
+
+.train-sample-load-btn:not(:disabled):hover {
+  background: #3730A3;
+}
+
 .toast-container .toast-message {
   font-family: "Pretendard", sans-serif;
   font-size: 14px;
