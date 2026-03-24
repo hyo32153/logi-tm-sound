@@ -257,7 +257,7 @@ async function selectResultMode(mode) {
 
   if (mode === 'record') {
     const canvas = document.getElementById('result-record-waveform');
-    if (canvas) drawEmptyWaveform(canvas);
+    if (canvas) drawEmptyWaveform(canvas, 3);
     const playBtn = document.getElementById('result-record-play-btn');
     if (playBtn) { playBtn.disabled = true; playBtn.classList.add('disabled'); }
     const bars = document.getElementById('result-record-bars');
@@ -318,6 +318,7 @@ async function processResultAudioFile(file) {
 
   const dataUrl = await fileToDataUrl(file);
   resultAudioStore.upload = dataUrl;
+  resultAudioBuffers.upload = audioBuffer;
 
   const uploadArea = document.getElementById('result-upload-area');
   const uploadResult = document.getElementById('result-upload-result');
@@ -341,6 +342,8 @@ async function processResultAudioFile(file) {
 let resultRecordingState = null;
 let isResultRecording = false;
 const resultAudioStore = { upload: null, record: null, sample: null };
+const resultAudioBuffers = { upload: null, record: null, sample: null };
+let resultPlayState = null; // { source, startTime, raf, mode }
 
 async function toggleResultRecording() {
   if (isResultRecording) {
@@ -370,7 +373,7 @@ async function startResultRecording() {
   analyser.fftSize = 256;
   source.connect(analyser);
 
-  startRealtimeWaveform('result-record-waveform', analyser);
+  startRealtimeWaveform('result-record-waveform', analyser, 3);
 
   isResultRecording = true;
   if (micBtn) micBtn.classList.add('recording');
@@ -394,6 +397,7 @@ async function startResultRecording() {
     const ab = await blob.arrayBuffer();
     try {
       const audioBuffer = await audioCtx2.decodeAudioData(ab);
+      resultAudioBuffers.record = audioBuffer;
       if (canvas) requestAnimationFrame(() => drawStaticWaveform(canvas, audioBuffer));
     } catch (e) {}
 
@@ -424,15 +428,75 @@ function stopResultRecording() {
   resultRecordingState = null;
 }
 
-async function playResultAudio(mode) {
-  const dataUrl = resultAudioStore[mode];
-  if (!dataUrl) return;
-  try {
-    const audio = new Audio(dataUrl);
-    audio.play();
-  } catch (e) {
-    showToast('재생할 수 없습니다.');
+function stopResultPlay() {
+  if (!resultPlayState) return;
+  const { source, raf, mode, canvas, audioBuffer } = resultPlayState;
+  cancelAnimationFrame(raf);
+  try { source.stop(); } catch (e) {}
+  if (canvas && audioBuffer) drawStaticWaveform(canvas, audioBuffer);
+  const btn = document.getElementById('result-' + mode + '-play-btn');
+  if (btn) {
+    btn.classList.remove('playing');
+    const icon = btn.querySelector('.material-icons');
+    if (icon) icon.textContent = 'play_arrow';
   }
+  resultPlayState = null;
+}
+
+async function playResultAudio(mode) {
+  if (resultPlayState) {
+    const wasMode = resultPlayState.mode;
+    stopResultPlay();
+    if (wasMode === mode) return;
+  }
+
+  const audioBuffer = resultAudioBuffers[mode];
+  if (!audioBuffer) return;
+
+  const canvasId = mode === 'upload' ? 'result-upload-waveform'
+                 : mode === 'record' ? 'result-record-waveform'
+                 : 'result-sample-waveform';
+  const canvas = document.getElementById(canvasId);
+  const btn = document.getElementById('result-' + mode + '-play-btn');
+
+  const audioCtx = getAudioCtx();
+  const source = audioCtx.createBufferSource();
+  source.buffer = audioBuffer;
+  source.connect(audioCtx.destination);
+
+  const duration = audioBuffer.duration;
+  const startTime = audioCtx.currentTime;
+
+  if (btn) {
+    btn.classList.add('playing');
+    const icon = btn.querySelector('.material-icons');
+    if (icon) icon.textContent = 'stop';
+  }
+
+  function animatePlayhead() {
+    const elapsed = audioCtx.currentTime - startTime;
+    if (elapsed >= duration) {
+      stopResultPlay();
+      return;
+    }
+    if (canvas) {
+      drawStaticWaveform(canvas, audioBuffer);
+      const ctx2d = canvas.getContext('2d');
+      const x = Math.round((elapsed / duration) * canvas.width);
+      ctx2d.strokeStyle = '#333';
+      ctx2d.lineWidth = 1.5;
+      ctx2d.beginPath();
+      ctx2d.moveTo(x, 0);
+      ctx2d.lineTo(x, canvas.height);
+      ctx2d.stroke();
+    }
+    resultPlayState.raf = requestAnimationFrame(animatePlayhead);
+  }
+
+  resultPlayState = { source, raf: null, mode, canvas, audioBuffer };
+  source.onended = () => { if (resultPlayState && resultPlayState.mode === mode) stopResultPlay(); };
+  source.start();
+  resultPlayState.raf = requestAnimationFrame(animatePlayhead);
 }
 
 // ============ Result Sample ============
@@ -494,6 +558,7 @@ async function loadResultSampleThumbs(category) {
 
 async function selectResultSampleAudio(dataUrl, audioBuffer) {
   resultAudioStore.sample = dataUrl;
+  resultAudioBuffers.sample = audioBuffer;
 
   const placeholder = document.getElementById('result-sample-placeholder');
   const result = document.getElementById('result-sample-result');

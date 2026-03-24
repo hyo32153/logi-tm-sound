@@ -1417,6 +1417,11 @@
   cursor: not-allowed;
 }
 
+.result-play-full-btn.playing,
+.result-play-icon-btn.playing {
+  background: #E53E3E;
+}
+
 /* Mic Error */
 .result-mic-error {
   display: flex;
