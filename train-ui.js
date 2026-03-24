@@ -407,13 +407,15 @@ async function startResultRecording() {
     }
   };
 
-  resultRecordingState = { mediaRecorder, stream };
+  const autoStopTimer = setTimeout(() => stopResultRecording(), 3000);
+  resultRecordingState = { mediaRecorder, stream, autoStopTimer };
   mediaRecorder.start();
 }
 
 function stopResultRecording() {
-  if (resultRecordingState && resultRecordingState.mediaRecorder) {
-    if (resultRecordingState.mediaRecorder.state === 'recording') {
+  if (resultRecordingState) {
+    if (resultRecordingState.autoStopTimer) clearTimeout(resultRecordingState.autoStopTimer);
+    if (resultRecordingState.mediaRecorder && resultRecordingState.mediaRecorder.state === 'recording') {
       resultRecordingState.mediaRecorder.stop();
     }
   }
