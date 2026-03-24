@@ -39,10 +39,18 @@ async function loadTruncatedModel() {
 // ============================================================================
 
 /**
- * data URL → 16kHz mono Float32Array
- * OfflineAudioContext로 리샘플링, 최소 1초 패딩
+ * data URL → 16kHz mono Float32Array (추론용, 앞 3초)
  */
 async function decodeAudioToWaveform(dataUrl) {
+  const chunks = await decodeAudioToChunks(dataUrl);
+  return chunks[0];
+}
+
+/**
+ * data URL → 3초 단위 청크 배열 (학습용)
+ * 3초 미만 마지막 청크는 버림, 최소 1청크 보장
+ */
+async function decodeAudioToChunks(dataUrl) {
   const response = await fetch(dataUrl);
   const arrayBuffer = await response.arrayBuffer();
 
@@ -54,18 +62,24 @@ async function decodeAudioToWaveform(dataUrl) {
     tmpCtx.close();
   }
 
-  const MAX_SECONDS = 3;
-  const targetLen = Math.max(
-    Math.min(Math.ceil(audioBuffer.duration * YAMNET_SAMPLE_RATE), MAX_SECONDS * YAMNET_SAMPLE_RATE),
-    YAMNET_SAMPLE_RATE
-  );
-  const offCtx = new OfflineAudioContext(1, targetLen, YAMNET_SAMPLE_RATE);
-  const src = offCtx.createBufferSource();
-  src.buffer = audioBuffer;
-  src.connect(offCtx.destination);
-  src.start(0);
-  const resampled = await offCtx.startRendering();
-  return resampled.getChannelData(0);
+  const CHUNK_SECONDS = 3;
+  const chunkLen = CHUNK_SECONDS * YAMNET_SAMPLE_RATE;
+  const totalLen = audioBuffer.duration * YAMNET_SAMPLE_RATE;
+  const numChunks = Math.max(1, Math.ceil(totalLen / chunkLen));
+  const chunks = [];
+
+  for (let i = 0; i < numChunks; i++) {
+    const thisChunkLen = Math.min(chunkLen, Math.ceil(totalLen - i * chunkLen));
+    const offCtx = new OfflineAudioContext(1, Math.max(thisChunkLen, YAMNET_SAMPLE_RATE), YAMNET_SAMPLE_RATE);
+    const src = offCtx.createBufferSource();
+    src.buffer = audioBuffer;
+    src.connect(offCtx.destination);
+    src.start(0, i * CHUNK_SECONDS);
+    const rendered = await offCtx.startRendering();
+    chunks.push(rendered.getChannelData(0));
+  }
+
+  return chunks;
 }
 
 /**

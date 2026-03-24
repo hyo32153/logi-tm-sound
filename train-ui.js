@@ -1138,18 +1138,69 @@ async function processAudioFiles(classId, files) {
     try {
       const arrayBuffer = await file.arrayBuffer();
       const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
-      const dataUrl = await fileToDataUrl(file);
-      const thumbnail = await createAudioThumbnail(audioBuffer);
-      classSamples[classId].push(dataUrl);
-      classThumbnails[classId] = classThumbnails[classId] || [];
-      classThumbnails[classId].push(thumbnail);
-      updateAudioThumbsGrid(classId);
-      updateAudioPreview(classId);
+      const chunkBuffers = await splitAudioBufferToChunks(audioBuffer);
+      for (const chunkBuffer of chunkBuffers) {
+        const blob = audioBufferToWavBlob(chunkBuffer);
+        const dataUrl = await blobToDataUrl(blob);
+        const thumbnail = await createAudioThumbnail(chunkBuffer);
+        classSamples[classId].push(dataUrl);
+        classThumbnails[classId] = classThumbnails[classId] || [];
+        classThumbnails[classId].push(thumbnail);
+        updateAudioThumbsGrid(classId);
+        updateAudioPreview(classId);
+      }
     } catch (err) {
       console.error('오디오 처리 오류:', err);
       showToast(file.name + ': 지원하지 않는 형식입니다.');
     }
   }
+}
+
+async function splitAudioBufferToChunks(audioBuffer) {
+  const CHUNK_SECONDS = 3;
+  const SAMPLE_RATE = 16000;
+  const chunkLen = CHUNK_SECONDS * SAMPLE_RATE;
+  const totalLen = audioBuffer.duration * SAMPLE_RATE;
+  const numChunks = Math.max(1, Math.ceil(totalLen / chunkLen));
+  const chunks = [];
+  for (let i = 0; i < numChunks; i++) {
+    const thisChunkLen = Math.max(Math.min(chunkLen, Math.ceil(totalLen - i * chunkLen)), SAMPLE_RATE);
+    const offCtx = new OfflineAudioContext(1, thisChunkLen, SAMPLE_RATE);
+    const src = offCtx.createBufferSource();
+    src.buffer = audioBuffer;
+    src.connect(offCtx.destination);
+    src.start(0, i * CHUNK_SECONDS);
+    chunks.push(await offCtx.startRendering());
+  }
+  return chunks;
+}
+
+function audioBufferToWavBlob(audioBuffer) {
+  const pcm = audioBuffer.getChannelData(0);
+  const numSamples = pcm.length;
+  const buffer = new ArrayBuffer(44 + numSamples * 2);
+  const view = new DataView(buffer);
+  const writeStr = (offset, str) => { for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i)); };
+  writeStr(0, 'RIFF');
+  view.setUint32(4, 36 + numSamples * 2, true);
+  writeStr(8, 'WAVE');
+  writeStr(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);   // PCM
+  view.setUint16(22, 1, true);   // mono
+  view.setUint32(24, audioBuffer.sampleRate, true);
+  view.setUint32(28, audioBuffer.sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeStr(36, 'data');
+  view.setUint32(40, numSamples * 2, true);
+  let offset = 44;
+  for (let i = 0; i < numSamples; i++) {
+    const s = Math.max(-1, Math.min(1, pcm[i]));
+    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    offset += 2;
+  }
+  return new Blob([buffer], { type: 'audio/wav' });
 }
 
 function fileToDataUrl(file) {
