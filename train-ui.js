@@ -8,7 +8,10 @@ function getAudioCtx() {
 }
 
 // ============ Waveform Drawing ============
-const WAVEFORM_COLOR = '#F5A623';
+const WAVEFORM_COLOR = '#1B74E8';
+const BAR_WIDTH = 4;
+const BAR_GAP = 3;
+const BAR_RADIUS = 2;
 
 function drawStaticWaveform(canvas, audioBuffer) {
   const ctx = canvas.getContext('2d');
@@ -17,19 +20,24 @@ function drawStaticWaveform(canvas, audioBuffer) {
   canvas.width = w;
   canvas.height = h;
   const data = audioBuffer.getChannelData(0);
-  const step = Math.ceil(data.length / w);
+  const numBars = Math.floor(w / (BAR_WIDTH + BAR_GAP));
+  const step = Math.ceil(data.length / numBars);
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle = '#fff';
   ctx.fillRect(0, 0, w, h);
   ctx.fillStyle = WAVEFORM_COLOR;
-  for (let i = 0; i < w; i++) {
+  for (let i = 0; i < numBars; i++) {
     let max = 0;
     for (let j = 0; j < step; j++) {
       const v = Math.abs(data[i * step + j] || 0);
       if (v > max) max = v;
     }
-    const barH = Math.max(2, max * h * 0.85);
-    ctx.fillRect(i, (h - barH) / 2, 1, barH);
+    const barH = Math.max(BAR_WIDTH, max * h * 0.85);
+    const x = i * (BAR_WIDTH + BAR_GAP);
+    const y = (h - barH) / 2;
+    ctx.beginPath();
+    ctx.roundRect(x, y, BAR_WIDTH, barH, BAR_RADIUS);
+    ctx.fill();
   }
 }
 
@@ -61,19 +69,25 @@ async function createAudioThumbnail(audioBuffer) {
   canvas.width = 40;
   canvas.height = 30;
   const data = audioBuffer.getChannelData(0);
-  const step = Math.ceil(data.length / 40);
+  const tBarW = 2, tBarG = 1, tBarR = 1;
+  const numBars = Math.floor(40 / (tBarW + tBarG));
+  const step = Math.ceil(data.length / numBars);
   const ctx = canvas.getContext('2d');
   ctx.fillStyle = '#fff';
   ctx.fillRect(0, 0, 40, 30);
   ctx.fillStyle = WAVEFORM_COLOR;
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < numBars; i++) {
     let max = 0;
     for (let j = 0; j < step; j++) {
       const v = Math.abs(data[i * step + j] || 0);
       if (v > max) max = v;
     }
-    const barH = Math.max(1, max * 28);
-    ctx.fillRect(i, (30 - barH) / 2, 1, barH);
+    const barH = Math.max(tBarW, max * 28);
+    const x = i * (tBarW + tBarG);
+    const y = (30 - barH) / 2;
+    ctx.beginPath();
+    ctx.roundRect(x, y, tBarW, barH, tBarR);
+    ctx.fill();
   }
   return canvas.toDataURL('image/png');
 }
@@ -137,9 +151,19 @@ function startRealtimeWaveform(canvasId, analyser, duration) {
 
     // Waveform bars left → right
     ctx.fillStyle = WAVEFORM_COLOR;
-    for (let x = 0; x < lastX && x < w; x++) {
-      const barH = Math.max(2, columns[x] * h * 3);
-      ctx.fillRect(x, (h - barH) / 2, 1, barH);
+    const totalBars = Math.floor(w / (BAR_WIDTH + BAR_GAP));
+    for (let i = 0; i < totalBars; i++) {
+      const xStart = i * (BAR_WIDTH + BAR_GAP);
+      if (xStart >= lastX) continue;
+      let maxAmp = 0;
+      for (let x = xStart; x < xStart + BAR_WIDTH && x < lastX && x < w; x++) {
+        if (columns[x] > maxAmp) maxAmp = columns[x];
+      }
+      const barH = Math.max(BAR_WIDTH, maxAmp * h * 3);
+      const y = (h - barH) / 2;
+      ctx.beginPath();
+      ctx.roundRect(xStart, y, BAR_WIDTH, barH, BAR_RADIUS);
+      ctx.fill();
     }
   }
   draw();
@@ -1369,20 +1393,6 @@ async function startClassRecording(classId) {
   const btn = document.getElementById('record-btn-' + classId);
   const settings = recordSettings[classId] || { duration: 3, delay: 0 };
 
-  if (settings.delay > 0) {
-    btn.disabled = true;
-    for (let i = settings.delay; i > 0; i--) {
-      btn.textContent = '';
-      const icon = document.createElement('span');
-      icon.className = 'material-icons';
-      icon.textContent = 'hourglass_empty';
-      btn.appendChild(icon);
-      btn.appendChild(document.createTextNode(' ' + i + '초 후 시작'));
-      await new Promise(r => setTimeout(r, 1000));
-    }
-    btn.disabled = false;
-  }
-
   let stream;
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -1398,6 +1408,20 @@ async function startClassRecording(classId) {
       btn.disabled = false;
     }
     return;
+  }
+
+  if (settings.delay > 0) {
+    btn.disabled = true;
+    for (let i = settings.delay; i > 0; i--) {
+      btn.textContent = '';
+      const icon = document.createElement('span');
+      icon.className = 'material-icons';
+      icon.textContent = 'hourglass_empty';
+      btn.appendChild(icon);
+      btn.appendChild(document.createTextNode(' ' + i + '초 후 시작'));
+      await new Promise(r => setTimeout(r, 1000));
+    }
+    btn.disabled = false;
   }
 
   const audioCtx = getAudioCtx();
